@@ -11,7 +11,7 @@ entities:
   DigitalProperty: {key: digital_property_id, fields: [url, property_type]}
   License: {key: license_id, fields: [issuer, license_type, license_number, status, effective_date, expiration_date]}
   Permit: {key: permit_id, fields: [issuer, permit_type, permit_number, status, issued_date]}
-  Evidence: {key: evidence_id, fields: [source_id, source_record_id, source_url, retrieved_at, observed_at, raw_evidence_ref, resolution_method, confidence]}
+  Evidence: {key: evidence_id, fields: [source_id, source_record_id, source_url, retrieved_at, observed_at, source_vintage, raw_evidence_ref, raw_sha256, resolution_method, confidence]}
 relationships:
   - [Address, LOCATED_IN, Municipality]
   - [Parcel, LOCATED_IN, Municipality]
