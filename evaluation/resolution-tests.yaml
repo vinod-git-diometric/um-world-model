@@ -1,0 +1,26 @@
+version: "0.1"
+metrics:
+  address_precision: {min: 0.95}
+  address_recall: {min: 0.90}
+  parcel_precision: {min: 0.95}
+  parcel_recall: {min: 0.90}
+  core_chain_precision: {min: 0.90}
+  core_chain_recall: {min: 0.85}
+  false_positive_merge_rate: {exclusive_max: 0.02}
+  provenance_completeness: {min: 1.00}
+required_cases:
+  - shared business address
+  - multiple parcels per address
+  - condo units
+  - street suffix normalization
+  - ambiguous fuzzy match abstention
+  - historical occupancy vs current occupancy
+  - legal entity vs storefront distinction
+  - missing source data and pagination failure
+evaluation_policy:
+  precision: correct accepted predictions / all accepted predictions with auditable labels
+  recall: correct accepted predictions / all eligible audited reference cases
+  coverage: accepted predictions / eligible reference cases
+  report_unverifiable_predictions_separately: true
+  report_counts_and_uncertainty: true
+  prohibit_benchmark_leakage: true

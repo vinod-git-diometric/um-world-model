@@ -1,0 +1,31 @@
+version: "0.1"
+entities:
+  Municipality: {key: municipality_id, fields: [name, state, state_town_id]}
+  District: {key: district_id, fields: [name, municipality_id, geometry_ref]}
+  Address: {key: address_id, fields: [canonical_address, house_number, street_name, unit, municipality_id, postal_code, source_address_id]}
+  Parcel: {key: parcel_id, fields: [municipality_id, loc_id, prop_id, map_par_id, site_address, use_code, zoning, source_vintage]}
+  Unit: {key: unit_id, fields: [unit_designator, floor]}
+  Business: {key: business_id, fields: [canonical_name, business_type, status, first_observed_at, last_observed_at]}
+  LegalEntity: {key: legal_entity_id, fields: [legal_name, jurisdiction, registry_id, status]}
+  Occupancy: {key: occupancy_id, fields: [business_id, address_id, unit_id, valid_from, valid_to, status]}
+  DigitalProperty: {key: digital_property_id, fields: [url, property_type]}
+  License: {key: license_id, fields: [issuer, license_type, license_number, status, effective_date, expiration_date]}
+  Permit: {key: permit_id, fields: [issuer, permit_type, permit_number, status, issued_date]}
+  Evidence: {key: evidence_id, fields: [source_id, source_record_id, source_url, retrieved_at, observed_at, raw_evidence_ref, resolution_method, confidence]}
+relationships:
+  - [Address, LOCATED_IN, Municipality]
+  - [Parcel, LOCATED_IN, Municipality]
+  - [Address, ASSOCIATED_WITH, Parcel]
+  - [Unit, PART_OF, Parcel]
+  - [Unit, HAS_ADDRESS, Address]
+  - [Business, HAS_OCCUPANCY, Occupancy]
+  - [Occupancy, AT_ADDRESS, Address]
+  - [Occupancy, IN_UNIT, Unit]
+  - [Business, OPERATED_BY, LegalEntity]
+  - [Business, HAS_DIGITAL_PROPERTY, DigitalProperty]
+  - [Business, HOLDS, License]
+  - [Parcel, SUBJECT_TO, Permit]
+constraints:
+  evidence_required_for_assertions: true
+  address_parcel_cardinality: many-to-many
+  unresolved_statuses: [unknown, ambiguous, not_found, not_applicable, source_unavailable]

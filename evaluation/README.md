@@ -1,0 +1,2 @@
+# Evaluation protocol
+The CSV is a provisional 16-row seed carried over from the earlier exploratory Chamber-based exercise. It is not a verified reference dataset. Recheck names/addresses against current sources and independently audit parcel links, then create a separate versioned reference file before evaluating. Do not feed reference parcel IDs to the resolver. Do not count unknowns as correct or drop them to inflate coverage. Publish only necessary commercial facts.
