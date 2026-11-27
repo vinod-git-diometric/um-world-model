@@ -11,6 +11,7 @@ dependencies = ["duckdb>=1.1", "pydantic>=2.9", "httpx>=0.27", "pyyaml>=6", "pya
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.7"]
 geo = ["shapely>=2", "geopandas>=1"]
+discovery = ["xlrd>=2", "openpyxl>=3.1"]
 
 [project.scripts]
 umwm = "um_world_model.cli:app"
