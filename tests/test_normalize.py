@@ -1,6 +1,20 @@
 import pytest
 
-from um_world_model.normalize import normalize_address
+from um_world_model.ingest import town_filter
+from um_world_model.normalize import compose_address, normalize_address
+
+
+def test_live_massgis_address_schema():
+    metadata = {
+        "fields": [{"name": "GEOGRAPHIC_TOWN_ID", "type": "esriFieldTypeInteger"}]
+    }
+    assert town_filter(metadata, "Stoneham") == (
+        "GEOGRAPHIC_TOWN_ID",
+        "GEOGRAPHIC_TOWN_ID=284",
+    )
+    assert compose_address(
+        {"FULL_NUMBER_STANDARDIZED": "12A", "STREET_NAME": "Example St", "UNIT": "2"}
+    ) == ("12A Example St", "12A", "Example St", "2")
 
 
 @pytest.mark.parametrize(

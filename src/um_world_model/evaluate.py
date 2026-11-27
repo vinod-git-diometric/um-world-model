@@ -158,14 +158,6 @@ def evaluate_run(
     reference = evaluate_reference(reference_path, by_id)
     seed = exploratory_seed_metrics(seed_path, address_path, by_id)
     accepted = statuses["accepted"]
-    gate_a_pass = bool(
-        reference.get("audited_cases", 0) >= 50
-        and reference.get("precision") is not None
-        and reference["precision"] >= 0.95
-        and reference.get("recall") is not None
-        and reference["recall"] >= 0.90
-        and provenance_complete == len(resolutions)
-    )
     report = {
         "evaluation_protocol": "Gate A v1",
         "address_parcel_resolutions": len(resolutions),
@@ -179,17 +171,18 @@ def evaluate_run(
         "independent_reference": reference,
         "exploratory_business_seed": seed,
         "gate_a": {
-            "passed": gate_a_pass,
+            "passed": False,
             "required_audited_cases": 50,
             "required_precision": 0.95,
             "required_recall": 0.90,
             "stop_for_review": True,
-            "decision": "PASS" if gate_a_pass else "NOT_MET",
+            "decision": "NOT_MET",
         },
         "limitations": [
             "The 16-row business seed is discovery input, not ground truth.",
             "Fuzzy address similarity creates candidates only and is never accepted automatically.",
             "Precision and recall remain unmeasured without independently audited labels.",
+            "The reference evaluator scores parcel links for a supplied address ID. Gate A also requires a separate address accuracy audit.",
         ],
     }
     json_path = output_dir / "gate-a-results.json"

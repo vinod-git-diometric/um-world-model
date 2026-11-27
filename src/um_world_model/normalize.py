@@ -58,6 +58,7 @@ FULL_ADDRESS_FIELDS = [
     "ADDRESS",
 ]
 HOUSE_FIELDS = [
+    "FULL_NUMBER_STANDARDIZED",
     "HOUSE_NUMBER",
     "HOUSENUMBER",
     "FULL_NUMBER",
@@ -105,8 +106,8 @@ def compose_address(
     house = first(attributes, HOUSE_FIELDS)
     street = first(attributes, STREET_FIELDS)
     unit = first(attributes, UNIT_FIELDS)
-    if not full and (house or street):
-        full = " ".join(part for part in (house, street) if part)
+    if not full and house and street:
+        full = f"{house} {street}"
     return full, house, street, unit
 
 
@@ -134,13 +135,11 @@ def geometry_coordinates(feature: dict[str, Any]) -> tuple[float | None, float |
 
 
 def evidence_for(
-    manifest_path: Path,
+    source: dict[str, Any],
     source_id: str,
     snapshot: Snapshot,
     source_record_id: str | None,
 ) -> Evidence:
-    manifest = load_manifest(manifest_path)
-    source = manifest.sources[source_id]
     return Evidence(
         source_id=source_id,
         source_record_id=source_record_id,
@@ -184,7 +183,10 @@ def normalize_run(
             longitude=longitude,
             latitude=latitude,
             evidence=evidence_for(
-                manifest_path, "massgis_addresses", snapshot, record_id
+                manifest.sources["massgis_addresses"],
+                "massgis_addresses",
+                snapshot,
+                record_id,
             ),
         )
         row = model.model_dump(mode="json")
@@ -209,7 +211,10 @@ def normalize_run(
             use_code=first(attributes, ["USE_CODE", "USECODE", "PROP_CLASS"]),
             source_vintage=first(attributes, ["FY", "FISCAL_YEAR", "YEAR"]),
             evidence=evidence_for(
-                manifest_path, "massgis_parcels", snapshot, record_id
+                manifest.sources["massgis_parcels"],
+                "massgis_parcels",
+                snapshot,
+                first(attributes, ["OBJECTID"]) or record_id,
             ),
         )
         row = model.model_dump(mode="json")
