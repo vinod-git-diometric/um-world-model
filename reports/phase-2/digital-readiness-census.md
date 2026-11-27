@@ -1,5 +1,26 @@
 # Stoneham digital readiness census — experimental sample
 
+## Post-publication connectivity preflight
+
+**Stopped before the cohort rerun.** Publication was reported, but the active runtime reported current, enforced revision 12. Its effective policy contained only the previous 16 custom hosts. The available configuration showed 73 custom hosts, of which 57 were absent from the effective runtime policy.
+
+The application reads the allowlist passed on the command line. I exported the effective runtime policy to a fresh local JSON file and compared it with the previous audit ledger. It allowed none of the 48 attempted hostnames across the 46 previously blocked civic sites. The refreshed file SHA-256 is `2b9ac6e9a851847088522f69af893c706ea2f26085dd5c1d35fe4e17dbb78ff7`. The frozen cohort SHA-256 remains `08a99fafd2f56e31e11c6f1f10ee5cb88af67d0d192a9668ad96ebaaa395d7d3`.
+
+| HTTPS probe | Result |
+| --- | --- |
+| `bodymindsystems.com`, `www.rapidliquors.com`, `thewinecellarsma.com`, `www.stonehamdentalcare.com`, `littlecaesars.com` | Managed proxy CONNECT 403 for all five |
+| `thebookoasis.com` | HTTP 200 |
+
+**Zero of the 46 blocked sites were eligible for retrieval through the active application and runtime policy.** The five representative failures occurred before merchant content was retrieved, so they are policy failures. Actual origin availability is unknown for sites that could not be reached. There are no new retrieval, identity, civic corroboration, parcel linkage, digital extraction, timing or intervention results for the 60-site cohort.
+
+The prior control run remains the evidence for parser diagnosis. Gaetano's expanded site name failed the exact identity match after a successful fetch. The Book Oasis and Patina'd passed the homepage checks. Patina'd's separately reviewed shop page demonstrated the priced catalog that its homepage-only automated L1 classification missed. This preflight introduced no parser or acquisition changes.
+
+Run the identical frozen cohort in a dedicated local research environment with an authorized merchant host policy. Generate the application allowlist from that environment's enforced policy and confirm representative HTTPS and robots access before running the existing command. Keep outbound requests read-only. Gate A remains open.
+
+---
+
+## Original frozen-cohort run
+
 **Phase 2.1 stopped for review with its live targets still unmet.** The Overture HTTPS rerun reproduced the previously reviewed data byte for byte. All 60 frozen civic sites received an automated disposition. Within that cohort, zero merchant sites, independently corroborated premises, or complete capability assessments were verified. The active policy excluded the merchant hosts for 46 sites, and 14 had no usable first-party URL lead. The three known controls ran separately. Gate A remains formally open.
 
 ## Reproducible Places acquisition
