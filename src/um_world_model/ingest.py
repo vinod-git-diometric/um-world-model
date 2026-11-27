@@ -81,9 +81,9 @@ def town_filter(metadata: dict[str, Any], town: str) -> tuple[str, str]:
         if "String" in field_type(metadata, town_id_field):
             return (
                 town_id_field,
-                f"{town_id_field} = {sql_string(str(STONEHAM_TOWN_ID))}",
+                f"{town_id_field}={sql_string(str(STONEHAM_TOWN_ID))}",
             )
-        return town_id_field, f"{town_id_field} = {STONEHAM_TOWN_ID}"
+        return town_id_field, f"{town_id_field}={STONEHAM_TOWN_ID}"
     town_name_field = choose_field(metadata, TOWN_FIELDS, required=False)
     if town_name_field:
         return town_name_field, f"UPPER({town_name_field}) = {sql_string(town.upper())}"
