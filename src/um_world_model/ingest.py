@@ -103,6 +103,8 @@ def _ingest_layer(
     layer_url: str,
     town: str,
     snapshots: list[Snapshot],
+    *,
+    parcel_geometry: bool = False,
 ) -> dict[str, Any]:
     metadata_time = utc_now()
     metadata = client.layer_metadata(layer_url)
@@ -131,12 +133,15 @@ def _ingest_layer(
             "USE_CODE",
             "FY",
             "TOWN_ID",
+            "POLY_TYPE",
         }
         wanted.add(metadata.get("objectIdField") or metadata.get("objectIdFieldName"))
         query_options["out_fields"] = ",".join(
             field["name"] for field in metadata["fields"] if field["name"] in wanted
         )
-        query_options["return_geometry"] = False
+        query_options["return_geometry"] = parcel_geometry
+        if parcel_geometry:
+            query_options["page_size"] = 500
     for page_count, page in enumerate(
         client.pages(layer_url, where, **query_options), start=1
     ):
@@ -176,7 +181,13 @@ def _ingest_layer(
     }
 
 
-def ingest_town(data_dir: Path, town: str = "Stoneham", state: str = "MA") -> Path:
+def ingest_town(
+    data_dir: Path,
+    town: str = "Stoneham",
+    state: str = "MA",
+    *,
+    parcel_geometry: bool = False,
+) -> Path:
     """Ingest both official Phase 1 layers and return the manifest path."""
     if town.casefold() != "stoneham" or state.upper() != "MA":
         raise ValueError("Phase 1 is scoped to Stoneham, MA")
@@ -221,7 +232,13 @@ def ingest_town(data_dir: Path, town: str = "Stoneham", state: str = "MA") -> Pa
         )
         sources["massgis_addresses"]["arcgis_item_id"] = ADDRESS_ITEM_ID
         sources["massgis_parcels"] = _ingest_layer(
-            client, run_root, "massgis_parcels", PARCEL_LAYER_URL, town, snapshots
+            client,
+            run_root,
+            "massgis_parcels",
+            PARCEL_LAYER_URL,
+            town,
+            snapshots,
+            parcel_geometry=parcel_geometry,
         )
     manifest = IngestionManifest(
         run_id=run_id,

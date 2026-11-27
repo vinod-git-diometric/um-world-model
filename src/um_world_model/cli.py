@@ -73,9 +73,12 @@ def ingest_town_command(
     town: Annotated[str, typer.Option()] = "Stoneham",
     state: Annotated[str, typer.Option()] = "MA",
     data_dir: Annotated[Path, typer.Option()] = DEFAULT_DATA_DIR,
+    parcel_geometry: Annotated[bool, typer.Option()] = False,
 ) -> None:
     """Ingest official address and parcel records with raw evidence."""
-    path = ingest_town(data_dir=data_dir, town=town, state=state)
+    path = ingest_town(
+        data_dir=data_dir, town=town, state=state, parcel_geometry=parcel_geometry
+    )
     typer.echo(path)
 
 
@@ -124,6 +127,46 @@ def evaluate_command(
         reference,
     )
     typer.echo(report)
+
+
+@app.command("resolve-spatial")
+def resolve_spatial_command(
+    manifest: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    data_dir: Annotated[Path, typer.Option()] = DEFAULT_DATA_DIR,
+) -> None:
+    """Resolve against verified MassGIS parcel polygons (requires the geo extra)."""
+    from .spatial import resolve_spatial
+
+    typer.echo(resolve_spatial(manifest or latest_manifest(data_dir)))
+
+
+@app.command("score-audit")
+def score_audit_command(
+    reference: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    predictions: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+) -> None:
+    """Score address and parcel predictions against frozen independent labels."""
+    from .audit import score_audit
+
+    typer.echo(json.dumps(score_audit(reference, predictions), indent=2))
+
+
+@app.command("compare-spatial")
+def compare_spatial_command(
+    baseline: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    manifest: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    data_dir: Annotated[Path, typer.Option()] = DEFAULT_DATA_DIR,
+    seed: Annotated[Path, typer.Option()] = DEFAULT_SEED,
+) -> None:
+    """Compare the v0.1 unresolved cohort and both methods on the latest snapshot."""
+    from .spatial_compare import compare_spatial
+
+    typer.echo(
+        json.dumps(
+            compare_spatial(manifest or latest_manifest(data_dir), baseline, seed),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
