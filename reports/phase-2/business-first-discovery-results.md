@@ -1,5 +1,67 @@
 # Stoneham Phase 2.1 — Business-first discovery
 
+## Live rerun on November 27, 2026
+
+The updated policy enabled the pinned Overture Places acquisition and all three merchant controls. **The review targets remain unmet.** The live run independently corroborated three advertised premises, verified their merchant sites, and completed three scoped digital capability reviews. It found 944 distinct provisional Places name-and-civic keys without exact baseline overlap. This figure is a discovery lead count. Gate A and the physical graph remain unchanged.
+
+### Preflight and acquisition
+
+The Overture catalog and release index, AWS regional object listing, Azure container listing, Chamber participating directory, and all three merchant homepages returned HTTP 200. The Chamber member directory returned HTTP 503 twice, with an upstream connection reset. The working Chamber page yielded 19 entries with Stoneham civic-address leads after excluding the listed Winchester address and the entry without a civic address.
+
+The existing `--fetch` command reached the official client, but its native Arrow S3 `HeadObject` failed on DNS resolution. The same authorized AWS HTTPS host accepted ranged reads through the managed proxy. A one-off local acquisition command read the pinned STAC index, selected its sole intersecting Places Parquet object, then read four row groups with intersecting bbox statistics through verified HTTP 206 responses. The 10 ranges transferred 8,358,532 bytes. It selected 1,658 bbox points, and the existing pipeline applied the official Stoneham polygon and candidate rules. The catalog-selected asset, index and release were kept fixed. No production code or access controls changed. [Pinned index](https://stac.overturemaps.org/2026-11-18.0/collections.parquet)
+
+| Live Places result | Count |
+| --- | ---: |
+| Points screened | 1,658 |
+| Outside the official Stoneham polygon | 318 |
+| Inside the polygon | 1,340 |
+| Business candidate rows | 992 |
+| Explicitly noncommercial exclusions | 46 |
+| Taxonomy review queue | 273 |
+| Reported closed, pending review | 29 |
+| Exact baseline overlaps accepted by the pipeline | 16 |
+| Ambiguous baseline overlaps | 2 |
+| Candidate rows with unresolved identity or civic key | 14 |
+| Nonoverlap candidate rows with a civic key | 960 |
+| Distinct provisional nonoverlap name-and-civic keys | 944 |
+
+Within the polygon, 259 records lacked websites, 297 lacked reported operating status, and 33 lacked both basic category and taxonomy. No record lacked a primary name, address array, source array or confidence value. Presence of an address array does not imply an unambiguous civic match. Among the 992 business candidate rows, 817 had a website lead. Such leads can point to directories, marketplaces, or shared sites and require identity verification. Places carries explicit source lineage, including upstream Meta and BrightQuery records. No inferred source independence or current operation was credited to a Places listing.
+
+### Merchant controls and baseline discovery
+
+Each control's published identity and Stoneham civic address matched the separate Chamber participating listing. All three corroborated premises linked to the physical graph's parcel results. These are corroborated **advertised** premises. No dated operating event or direct merchant occupancy confirmation was collected.
+
+| Merchant | Observed first-party evidence | Advertised paths still requiring external verification |
+| --- | --- | --- |
+| [The Book Oasis](https://thebookoasis.com/) | 311 Main Street; store-hours grid; books, gifts and games; curated lists, book inquiry form, Facebook and Instagram links | Bookshop.org and Libro.fm storefront links; Square e-gift card order link |
+| [Gaetano's](https://www.gaetanosfood.com/) | 271 Main Street; posted hours; restaurant and catering offerings; priced menu, marketplace and social links | ChowNow delivery and OpenTable reservations |
+| [Patina'd](https://www.patinadstore.com/) | 379 Main Street; posted winter hours; vintage and decorative wares; priced product catalog, public Add to Cart control, social links | Checkout untested; no transaction or account action taken |
+
+Of the original 70 candidates, 16 matched a Chamber listing by name and civic key, 18 had a Places name-and-civic match (16 accepted baseline overlaps and two ambiguous cases), and 26 matched either source. Twenty-three had URL leads, including the three verified controls. Forty-four lacked a match in these queried sources and 47 had no URL lead. The 20 other URL leads received no completed first-party review. The 976 additional candidate case records received their Places disposition and provenance. They were not individually reviewed on merchant sites. No list or catalog match was counted as current occupancy.
+
+| Existing target | Live outcome |
+| --- | --- |
+| Evaluate the original 70 | 70/70 checked against the live discovery sources; 3/70 completed merchant reviews |
+| Independently corroborate 50 business locations | 3 advertised premises; 0 merchant-confirmed current occupancies |
+| Verify 30 merchant sites | 3 |
+| Complete 30 digital assessments | 3 scoped first-party reviews; external transaction paths remain unverified |
+| Link 90% of corroborated premises to parcels | 3/3 (100%), with a denominator of three |
+| Maintain 100% evidence provenance | 1,046/1,046 case records retain a source observation or pinned Places ID; all 45 reviewed fields validated against retained snapshot hashes |
+
+Observed digital distribution is three official sites, three catalogs, three social presences, two marketplace-link fields, and one inquiry form. Zero ordering, checkout, and booking flows were verified. A public product cart control is evidence of an advertised interaction, with checkout still unobserved. The inherited Phase 2 receipts were preserved. Row-level Places data, HTML and review records remain in ignored local storage.
+
+### One follow-up access request
+
+One additive restricted-network draft was saved for review and publication. It retains the active allowlist and adds 29 exact hosts linked by the original-cohort discovery sources or advertised transaction pages. It covers base and observed www variants where distinct, without adding wildcards. The new rules were not active during this run. Representative merchant and transaction checks returned CONNECT 403, including `bodymindsystems.com`, `www.rapidliquors.com`, `bookshop.org`, `ordering.chownow.com`, and `www.opentable.com`. The Chamber directory is already allowed, so its 503 is an upstream availability issue.
+
+Requested hosts are `bodymindsystems.com`, `ceramicapaintstudio.com`, `christinessweetshoppe.com`, `eyogamoves.com`, `jandbbutcher.com`, `linktr.ee`, `naturalfoodexchange.com`, `nobilityhilltavern.com`, `order.toasttab.com`, `pignonescafe.com`, `redlotusnailsnspa.com`, `thedirtydoodle.com`, `theenergybarre.com`, `thestonescommonhouse.com`, `thewinecellarsma.com`, `www.arborsassistedliving.com`, `www.ceramicapaintstudio.com`, `www.evvivatrattoria.com`, `www.groupon.com`, `www.rapidliquors.com`, `www.redstoneliquors.com`, `www.thedirtydoodle.com`, `www.thestonescommonhouse.com`, `www.ymcametronorth.org`, `bookshop.org`, `squareup.com`, `libro.fm`, `ordering.chownow.com`, and `www.opentable.com`.
+
+No paid API or paid search product was used. The pinned HTTPS ranges transferred 8.36 MB and the retained merchant and Chamber HTML totals 5.35 MB. The existing manual-review and monthly-refresh assumptions below still apply. The data hash is `51646bb42dae8ab21ffede156b09c6219efaccbe1b1d64eca06146cc63580b99` and the STAC index hash is `1291c9621e79c3fa65a029621ce2474fb235dbcc10aa18e7a7f323dff3f10b1c`. The live evaluation is retained under `data/phase21/live-final-v2.json`. Stop for review.
+
+---
+
+## Prior run and methodology (commit `f77f7dd`)
+
 **The live discovery targets remain unmet.** All 70 baseline candidates received an evidence review disposition. The managed proxy blocked Overture data retrieval, both Chamber pages, and all three merchant positive controls. This run therefore added no independently corroborated premises or verified digital capabilities. The physical graph and Phase 2 baseline at `8667b54` remain unchanged. Gate A is formally unmet.
 
 ## Overture Places
