@@ -1,0 +1,45 @@
+version: "0.1"
+town: Stoneham
+state: MA
+sources:
+  - id: massgis_addresses
+    authority: MassGIS
+    url: https://www.mass.gov/info-details/massgis-data-master-address-data-basic-address-points
+    arcgis_item: c33281538f854507a90351760c3468fc
+    phase: 1
+    access: official public data; verify service URL and schema
+  - id: massgis_parcels
+    authority: MassGIS
+    url: https://www.mass.gov/info-details/massgis-data-property-tax-parcels
+    layer: https://services1.arcgis.com/hGdibHYSPO59RG1h/ArcGIS/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0
+    phase: 1
+    access: official public feature service; verify town identifier, fields, pagination
+  - id: stoneham_chamber
+    url: https://stonehamchamber.org/gift-certificates/participating-businesses/
+    phase: 2
+    note: partial seed, not census; verify live page
+  - id: massachusetts_corporations
+    url: https://www.mass.gov/info-details/the-corporations-book
+    phase: 3
+    note: legal entity does not prove current occupancy
+  - id: stoneham_business_certificates
+    url: https://www.stoneham-ma.gov/691/Business-Certificates
+    phase: 4
+    note: record access and statutory exemptions require verification
+  - id: stoneham_building_permits
+    url: https://www.stoneham-ma.gov/220/Permit-Applications-Other-Forms
+    phase: 4
+    note: verify portal availability; no bypass
+  - id: stoneham_health
+    url: https://www.stoneham-ma.gov/154/Board-of-Health
+    phase: 4
+  - id: stoneham_licenses
+    url: https://stoneham-ma.gov/291/License-Fees
+    phase: 4
+  - id: abcc
+    url: https://www.mass.gov/info-details/abcc-active-licenses
+    phase: 4
+  - id: census_acs
+    url: https://api.census.gov/data.html
+    phase: 5
+    note: context only; not occupancy evidence
