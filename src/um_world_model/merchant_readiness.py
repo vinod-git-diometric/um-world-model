@@ -13,17 +13,16 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
-from urllib.robotparser import RobotFileParser
 
 import httpx
 from bs4 import BeautifulSoup
 
 from .commercial import name_key
+from .merchant_acquisition import AGENT, PublicOnlyTransport, PublicPages
+from .merchant_identity import catalog_evidence, discover, identity, unit_of
 from .normalize import normalize_address
 from .physical_graph import digest
 
-AGENT = "UMWorldModelResearch"
-MAX_BODY = 2_000_000
 PLATFORMS = {
     "facebook.com",
     "instagram.com",
@@ -69,76 +68,6 @@ def platform(url):
     return any(host == p or host.endswith("." + p) for p in PLATFORMS)
 
 
-class PublicPages:
-    def __init__(self, client: httpx.Client, allowed_hosts: set[str]):
-        self.client, self.hosts = client, allowed_hosts
-        self.robots = {}
-        self.waits = {}
-        self.last = {}
-        self.bytes = self.requests = 0
-
-    def request(self, url):
-        host = domain(url)
-        if host not in self.hosts:
-            return "host_not_allowed", None
-        delay = self.waits.get(host, 0.3)
-        time.sleep(max(0, delay - (time.monotonic() - self.last.get(host, 0))))
-        self.last[host] = time.monotonic()
-        self.requests += 1
-        try:
-            with self.client.stream("GET", url) as response:
-                if response.is_redirect:
-                    target = web_url(urljoin(url, response.headers.get("location", "")))
-                    return (
-                        "redirect_review"
-                        if target and (domain(target) in self.hosts)
-                        else "redirect_host_not_allowed"
-                    ), target
-                if response.status_code != 200:
-                    return f"http_{response.status_code}", None
-                if "html" not in response.headers.get(
-                    "content-type", ""
-                ).lower() and not url.endswith("/robots.txt"):
-                    return "not_html", None
-                body = bytearray()
-                try:
-                    for chunk in response.iter_bytes(chunk_size=16384):
-                        if len(body) + len(chunk) > MAX_BODY:
-                            return "body_limit", None
-                        body.extend(chunk)
-                finally:
-                    self.bytes += response.num_bytes_downloaded
-                return "ok", bytes(body)
-        except httpx.ProxyError:
-            return "proxy_denied", None
-        except httpx.HTTPError:
-            return "network_error", None
-
-    def page(self, url):
-        host = domain(url)
-        if host not in self.hosts:
-            return "host_not_allowed", None
-        if host not in self.robots:
-            code, body = self.request(f"https://{host}/robots.txt")
-            self.robots[host] = False
-            if code == "http_404" or code == "http_410":
-                self.robots[host] = None
-            elif code == "ok" and not body.lstrip().startswith(b"<"):
-                robot = RobotFileParser()
-                robot.parse(body.decode("utf-8", errors="replace").splitlines())
-                delay = robot.crawl_delay(AGENT) or robot.crawl_delay("*") or 0
-                rate = robot.request_rate(AGENT) or robot.request_rate("*")
-                if rate and rate.requests:
-                    delay = max(delay, rate.seconds / rate.requests)
-                if delay <= 10:
-                    self.waits[host] = max(0.3, delay)
-                    self.robots[host] = robot
-        robot = self.robots[host]
-        if robot is False or (robot is not None and not robot.can_fetch(AGENT, url)):
-            return "robots_unavailable_or_disallows", None
-        return self.request(url)
-
-
 def jsonld_nodes(soup):
     for script in soup.find_all("script", type="application/ld+json"):
         try:
@@ -156,15 +85,10 @@ def jsonld_nodes(soup):
 def extract_page(body: bytes, url: str, case: dict) -> dict:
     """Verify exact name evidence. Treat links as advertisements, not tested flows."""
     soup = BeautifulSoup(body, "html.parser")
-    title = soup.title.get_text(" ", strip=True) if soup.title else ""
-    headings = [h.get_text(" ", strip=True) for h in soup.find_all("h1")]
     nodes = list(jsonld_nodes(soup))
-    names = [node["name"] for node in nodes if isinstance(node.get("name"), str)]
     key = name_key(case["name"])
-    title_segments = re.split(r"\s+[|–—-]\s+", title)
-    name_matches = [
-        s for s in names + headings + title_segments if key and name_key(s) == key
-    ]
+    identity_result = identity(soup, nodes, case)
+    name_matches = [s for s, _ in identity_result["name_matches"]]
     body_text = " ".join(soup.stripped_strings)
     town = re.search(r"\bStoneham\b", body_text, re.IGNORECASE)
     civic = case["civic"]
@@ -174,6 +98,7 @@ def extract_page(body: bytes, url: str, case: dict) -> dict:
         for a in structured
         if str(a.get("addressLocality", "")).strip().casefold() == "stoneham"
         and a.get("streetAddress")
+        and str(a.get("addressRegion", "MA")).casefold() in {"ma", "massachusetts"}
     ]
     exact_structured = [
         a for a in local_structured if normalize_address(a["streetAddress"]) == civic
@@ -186,30 +111,72 @@ def extract_page(body: bytes, url: str, case: dict) -> dict:
         }
     )
     body_match = None
+    body_matches = []
+    body_conflicts = []
     if town:
         for text in soup.stripped_strings:
             # Verify a civic line with a delimiter, and retain only that public line.
-            line = re.split(r",|\bStoneham\b", text, maxsplit=1, flags=re.IGNORECASE)[
+            line = re.split(r"\bStoneham\b", text, maxsplit=1, flags=re.IGNORECASE)[
                 0
-            ].strip()
+            ].strip(" ,")
+            line = line.replace(",", " ")
             if normalize_address(line) == civic and len(line) < 100:
                 body_match = line
-                break
+                body_matches.append(line)
+            elif (
+                len(line) < 100
+                and re.search(r"\bStoneham\b", text, re.IGNORECASE)
+                and re.fullmatch(
+                    r"\d+[A-Za-z-]*\s+[\w .'-]+\s+(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Court|Ct|Way|Square|Sq|Parkway|Pkwy)\.?",
+                    line,
+                    re.IGNORECASE,
+                )
+            ):
+                body_conflicts.append(line)
+    matching_addresses = [a["streetAddress"] for a in exact_structured] + body_matches
+    expected_unit = (
+        unit_of(str(case["unit"])) or unit_of("unit " + str(case["unit"]))
+        if case.get("unit")
+        else None
+    )
+    observed_units = {unit_of(a) for a in matching_addresses}
+    unit_conflict = bool(matching_addresses and (observed_units != {expected_unit}))
     verified = bool(
         name_matches
         and not platform(url)
         and (exact_structured or body_match)
         and not structured_conflicts
+        and not body_conflicts
+        and not unit_conflict
     )
     result = {
         "official_website_verified": verified,
+        **identity_result,
+        "unit_status": "ambiguous"
+        if unit_conflict
+        else ("matched" if expected_unit else "not_specified"),
+        "abstention_reasons": (
+            []
+            if verified
+            else (["name_evidence_missing"] if not name_matches else [])
+            + (["civic_evidence_missing"] if not matching_addresses else [])
+            + (
+                ["conflicting_civic_evidence"]
+                if structured_conflicts or body_conflicts
+                else []
+            )
+            + (["unit_unresolved"] if unit_conflict else [])
+            + (["third_party_platform"] if platform(url) else [])
+        ),
+        "catalog_evidence": catalog_evidence(soup, nodes, url),
         "identity_excerpt": name_matches[0] if verified else None,
         "advertised_civic_excerpt": (
             (exact_structured[0]["streetAddress"] if exact_structured else body_match)
             if verified
             else None
         ),
-        "conflicting_structured_addresses": structured_conflicts if verified else [],
+        "conflicting_structured_addresses": structured_conflicts,
+        "conflicting_body_addresses": body_conflicts,
         "hours": [
             n.get("openingHours")
             for n in nodes
@@ -227,11 +194,7 @@ def extract_page(body: bytes, url: str, case: dict) -> dict:
         "individual_capabilities": [],
         "advertised_links": [],
     }
-    if not verified:
-        return result
-    product = any(
-        n.get("@type") in ("Product", "Menu") and n.get("name") for n in nodes
-    )
+    product = bool(result["catalog_evidence"])
     labels = Counter()
     for anchor in soup.select("a[href]"):
         href = (
@@ -256,7 +219,7 @@ def extract_page(body: bytes, url: str, case: dict) -> dict:
             labels["social_presence_link"] += 1
         if platform(href) and re.search(r"shop|book|order|delivery|buy", label):
             labels["marketplace_link"] += 1
-    fields = {"official_website"}
+    fields = {"official_website"} if verified else set()
     if product:
         fields.add("catalog")
     if labels["social_presence_link"]:
@@ -285,35 +248,117 @@ def maturity(*, website, capabilities, confirmed_without_website=False):
     return "L0" if confirmed_without_website else "Unknown"
 
 
-def assess_case(case, pages, directory, independent_premises=None, physical=None):
+def assess_case(
+    case, pages, directory, independent_premises=None, physical=None, *, page_budget=5
+):
     started = time.perf_counter()
     bytes_before, requests_before = pages.bytes, pages.requests
-    attempts = []
+    if not 0 <= page_budget <= 5:
+        raise ValueError("page_budget must be between zero and five")
+    attempts, documents, discovered, visited = [], [], {}, set()
     extraction = None
     candidates = list(
         dict.fromkeys(
             url for raw in case["urls"] if (url := web_url(raw)) and not platform(url)
         )
     )
-    for url in candidates[:3]:
+
+    def fetch(url, role, discovery=None):
+        visited.add(url)
         status, body = pages.page(url)
         attempt = {
             "url": url,
+            "final_url": pages.final_url,
+            "role": role,
             "status": status,
             "observed_at": datetime.now(UTC).isoformat(),
+            "acquisition_event_ids": pages.last_trace,
+            "discovery": discovery,
         }
         attempts.append(attempt)
         if status != "ok":
-            continue
+            return
+        final_url = pages.final_url
+        visited.add(final_url)
         sha = hashlib.sha256(body).hexdigest()
-        snapshot = directory / f"{sha}.html"
+        snapshot = directory / f"{sha}.body"
         if not snapshot.exists():
-            with snapshot.open("xb") as file:
-                file.write(body)
+            snapshot.write_bytes(body)
         attempt.update({"snapshot": snapshot.name, "sha256": sha})
-        extraction = extract_page(body, url, case)
-        if extraction["official_website_verified"]:
+        result = extract_page(body, final_url, case)
+        attempt["extraction"] = result
+        documents.append((attempt, result))
+        soup = BeautifulSoup(body, "html.parser")
+        for link in discover(soup, list(jsonld_nodes(soup)), final_url):
+            link["source_sha256"] = sha
+            discovered.setdefault(link["url"], link)
+
+    for url in candidates[:3]:
+        fetch(url, "frozen_lead")
+        if any(result["official_website_verified"] for _, result in documents):
             break
+    for _ in range(page_budget):
+        pending = sorted(
+            (link for url, link in discovered.items() if url not in visited),
+            key=lambda link: (link["priority"], link["url"]),
+        )
+        if not pending:
+            break
+        link = pending[0]
+        fetch(link["url"], "relevant_internal_page", link)
+
+    verified_documents = [
+        (a, r) for a, r in documents if r["official_website_verified"]
+    ]
+    if verified_documents:
+        anchor, result = verified_documents[0]
+        extraction = dict(result)
+        extraction["evidence_pages"] = []
+        features, ads, catalog = set(), [], []
+        conflicts = []
+        for attempt, result in documents:
+            if domain(attempt["final_url"]) != domain(anchor["final_url"]):
+                continue
+            if (
+                result["conflicting_structured_addresses"]
+                or result["conflicting_body_addresses"]
+                or result["unit_status"] == "ambiguous"
+            ):
+                conflicts.append(attempt["sha256"])
+                continue
+            features.update(result["individual_capabilities"])
+            ads.extend(result["advertised_links"])
+            # Catalog on an authored internal page inherits only website ownership,
+            # never a new civic/occupancy identity or a transaction verification.
+            catalog.extend(
+                {**e, "source_sha256": attempt["sha256"], "url": attempt["final_url"]}
+                for e in result["catalog_evidence"]
+            )
+            extraction["evidence_pages"].append(
+                {
+                    "url": attempt["final_url"],
+                    "sha256": attempt["sha256"],
+                    "snapshot": attempt["snapshot"],
+                    "observed_at": attempt["observed_at"],
+                    "resolution_method": result["identity_method"]
+                    if result["official_website_verified"]
+                    else "authored_same_host_link_from_verified_site",
+                }
+            )
+        if conflicts:
+            extraction["official_website_verified"] = False
+            extraction["abstention_reasons"] = ["cross_page_civic_or_unit_conflict"]
+            extraction["conflict_snapshot_hashes"] = conflicts
+        if catalog:
+            features.add("catalog")
+        extraction["individual_capabilities"] = sorted(features)
+        extraction["advertised_links"] = ads
+        extraction["catalog_evidence"] = catalog
+        extraction["identity_source"] = {
+            k: anchor[k] for k in ("final_url", "snapshot", "sha256", "observed_at")
+        }
+    elif documents:
+        extraction = documents[-1][1]
     verified = bool(extraction and extraction["official_website_verified"])
     features = extraction["individual_capabilities"] if verified else []
     level = maturity(website=verified, capabilities=features)
@@ -367,6 +412,11 @@ def assess_case(case, pages, directory, independent_premises=None, physical=None
         "flags": case["observed_flags"],
         "level": level,
         "attempts": attempts,
+        "additional_page_budget": page_budget,
+        "additional_pages_attempted": sum(
+            a["role"] == "relevant_internal_page" for a in attempts
+        ),
+        "discovered_pages_not_attempted": sum(url not in visited for url in discovered),
         "extraction": extraction,
         "review_reason": reason,
         "digital_assessment_completed": scoped_assessment,
@@ -379,10 +429,27 @@ def assess_case(case, pages, directory, independent_premises=None, physical=None
     }
 
 
-def run(frozen_path, hosts_path, output, *, prior_reviews=None, physical_path=None):
+def run(
+    frozen_path,
+    hosts_path,
+    output,
+    *,
+    prior_reviews=None,
+    physical_path=None,
+    page_budget=5,
+    max_redirects=5,
+):
+    if not 0 <= page_budget <= 5 or not 0 <= max_redirects <= 5:
+        raise ValueError("page and redirect budgets must be between zero and five")
+    started_at = datetime.now(UTC).isoformat()
     started, cpu = time.perf_counter(), time.process_time()
     frozen = json.loads(frozen_path.read_bytes())
-    hosts = set(json.loads(hosts_path.read_bytes()))
+    host_list = json.loads(hosts_path.read_bytes())
+    if not isinstance(host_list, list) or not all(
+        isinstance(h, str) and re.fullmatch(r"[a-z0-9.-]+", h) for h in host_list
+    ):
+        raise ValueError("Expected a flat lowercase DNS host array")
+    hosts = set(host_list)
     prior = {}
     if prior_reviews:
         reviews = json.loads(prior_reviews.read_bytes())
@@ -411,13 +478,22 @@ def run(frozen_path, hosts_path, output, *, prior_reviews=None, physical_path=No
             geo.setdefault(edge["civic"], []).append(edge)
     output.mkdir(parents=True, exist_ok=False)
     with httpx.Client(
-        timeout=10, follow_redirects=False, headers={"User-Agent": f"{AGENT}/1.0"}
+        timeout=10,
+        follow_redirects=False,
+        headers={"User-Agent": f"{AGENT}/1.0"},
+        transport=PublicOnlyTransport(hosts),
+        trust_env=False,
     ) as client:
-        pages = PublicPages(client, hosts)
+        pages = PublicPages(client, hosts, output, max_redirects=max_redirects)
         reports = {
             key: [
                 assess_case(
-                    case, pages, output, prior.get(case["id"]), geo.get(case["civic"])
+                    case,
+                    pages,
+                    output,
+                    prior.get(case["id"]),
+                    geo.get(case["civic"]),
+                    page_budget=page_budget,
                 )
                 for case in frozen[key]
             ]
@@ -426,6 +502,12 @@ def run(frozen_path, hosts_path, output, *, prior_reviews=None, physical_path=No
     cohort = reports["cases"]
     measures = {
         "locations": len(cohort),
+        "retrieved_locations": sum(
+            any(a["status"] == "ok" for a in r["attempts"]) for r in cohort
+        ),
+        "additional_pages_attempted": sum(
+            r["additional_pages_attempted"] for r in cohort
+        ),
         "verified_websites": sum(r["level"] not in {"L0", "Unknown"} for r in cohort),
         "corroborated": sum(r["corroborated_advertised_premises"] for r in cohort),
         "corroborated_with_parcels": sum(bool(r["parcel_ids"]) for r in cohort),
@@ -444,6 +526,15 @@ def run(frozen_path, hosts_path, output, *, prior_reviews=None, physical_path=No
     with (output / "audit.json").open("x", encoding="utf-8") as file:
         json.dump(
             {
+                "started_at": started_at,
+                "finished_at": datetime.now(UTC).isoformat(),
+                "acquisition_version": "phase22a-v1",
+                "page_budget": page_budget,
+                "max_redirects": max_redirects,
+                "physical_sha256": digest(physical_path) if physical_path else None,
+                "prior_reviews_sha256": digest(prior_reviews)
+                if prior_reviews
+                else None,
                 "cohort_sha256": digest(frozen_path),
                 "host_policy_sha256": digest(hosts_path),
                 "metrics": measures,
@@ -461,6 +552,8 @@ def main():
         parser.add_argument(name, type=Path)
     parser.add_argument("--prior-reviews", type=Path)
     parser.add_argument("--physical", type=Path)
+    parser.add_argument("--page-budget", type=int, choices=range(6), default=5)
+    parser.add_argument("--max-redirects", type=int, choices=range(6), default=5)
     args = parser.parse_args()
     run(
         args.cohort,
@@ -468,6 +561,8 @@ def main():
         args.output,
         prior_reviews=args.prior_reviews,
         physical_path=args.physical,
+        page_budget=args.page_budget,
+        max_redirects=args.max_redirects,
     )
 
 
