@@ -1,2 +1,4 @@
 # Evaluation protocol
 The CSV is a provisional 16-row seed carried over from the earlier exploratory Chamber-based exercise. It is not a verified reference dataset. Recheck names/addresses against current sources and independently audit parcel links, then create a separate versioned reference file before evaluating. Do not feed reference parcel IDs to the resolver. Do not count unknowns as correct or drop them to inflate coverage. Publish only necessary commercial facts.
+
+`reference-labels.example.csv` defines the separate audit-file schema. Copy it outside the resolver input path, record the independent source and audit notes, and freeze it before running predictions. Use pipe-separated IDs when an address is supported by multiple parcels. Only rows explicitly marked `audited` enter precision and recall denominators; Gate A requires at least 50 such cases.
