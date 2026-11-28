@@ -1,5 +1,81 @@
 # Stoneham digital readiness census — experimental sample
 
+## Local frozen baseline — 2026-11-28
+
+**The local baseline completed; acceptance targets remain unmet. Stop for architectural review. Gate A remains formally open.** All 60 original locations received dispositions, with no substitutions or changes to the cohort or physical graph. Twenty-two locations yielded merchant pages; 11 passed the unchanged deterministic name-and-civic verification; three matched the preserved independent Chamber premises evidence and linked to parcels. These are automated evidence checks, not independently audited precision measurements or proof of current operation.
+
+The run began at **14:41:32 UTC** and finished at **14:42:42 UTC**, using checkout `2d3f463` on `codex/stoneham-gate-a`. Source, tests, and package declarations are unchanged from checkpoint `c531643`. The user approved the exact 55-host configuration and the Python 3.12.16 versus 3.12.14 difference. The 37 installed constrained packages match; three unused source-reconstruction spreadsheet dependencies remain absent. All 36 regression tests passed. [Prerequisites and exact approved hosts](../../docs/local-baseline-prerequisites.md).
+
+### Retrieval, verification and readiness
+
+| Cohort measure | Result | 95% Wilson interval |
+| --- | ---: | ---: |
+| Locations dispositioned | 60/60 | — |
+| At least one merchant page retrieved | 22/60 (36.7%) | 25.6–49.3% |
+| Passed deterministic website identity and civic checks | 11/60 (18.3%) | 10.6–29.9% |
+| Independently corroborated advertised premises using preserved Chamber evidence | 3/60 (5.0%) | 1.7–13.7% |
+| Parcel-linked among corroborated premises | 3/3 (100%) | 43.9–100% |
+| Script's scoped homepage assessment completed | 5/60 (8.3%) | 3.6–18.1% |
+| No follow-up reason under the frozen script | 2/60 (3.3%) | 0.9–11.4% |
+| Follow-up required | 58/60 (96.7%) | 88.6–99.1% |
+
+Intervals describe small-denominator uncertainty only; this deliberately stratified, difficult-case sample is not a random town sample. No population inference or independent precision claim follows. Eleven of the 22 retrieved locations passed verification; the other 11 remain identity/civic review cases, not demonstrated false businesses or parser defects. There were no extractor crashes. The baseline did not manually adjudicate aliases, units, or failed matches, so extraction accuracy, identity precision/recall, stale-listing rates, and entity-merge error rates remain unmeasured.
+
+Maturity: **49 Unknown, 10 L1, one L2; zero L0, L3, or L4.** Unknowns include missing leads and inaccessible pages. Among the 11 verified websites the extractor observed 10 social-presence indicators, five marketplace-link indicators, one inquiry-form indicator, and one structured catalog indicator; indicators overlap. Six verified sites advertise transaction pathways requiring review. Those links do not establish observed transactions. Five sites meet the script's narrow homepage completion rule, but these are not five independently audited, comprehensive capability assessments. No new full manual capability assessments were completed.
+
+### Failure attribution and intervention
+
+The following mutually exclusive location dispositions reconcile to 60:
+
+| Disposition | Locations |
+| --- | ---: |
+| Missing usable first-party URL lead | 14 |
+| Explicitly excluded staging host | 1 |
+| Robots redirect deferred | 10 |
+| Robots returned HTTP 200 but the frozen robots gate rejected access | 3 |
+| Transport failure while requesting robots | 3 |
+| Homepage redirect deferred: approved destination | 3 |
+| Homepage redirect deferred: destination outside approved list | 3 |
+| Homepage HTTP 404 | 1 |
+| Retrieved page, identity/civic verification unresolved | 11 |
+| Verified, transaction-pathway review required | 6 |
+| Verified, independent premises review required | 3 |
+| No follow-up reason | 2 |
+
+The three transport failures were one DNS-resolution failure, one connection refusal, and one TLS certificate hostname mismatch. TLS verification remained enabled. These are access failures, not extraction failures. The three rejected HTTP-200 robots responses cannot be distinguished retrospectively between rule denial and unsupported robots content from the retained logs; the unchanged retriever does not persist robots bodies. They must not be described as three explicit robots prohibitions.
+
+At attempt level, the cohort has 48 candidate-page dispositions: 22 successful captures, 18 robots-gated attempts, six homepage redirects, one policy exclusion, and one HTTP 404. Of the 18 robots-gated attempts, 12 encountered redirects, three transport failures, and three rejected HTTP-200 robots responses. Two redirect-gated attempts belonged to locations subsequently retrieved through another original frozen URL; therefore attempt and location counts differ. No new URLs, redirected destinations, or substitute locations were introduced.
+
+Across the cohort, companion and controls, the private transport log reconciles **90 GET attempts** to 87 HTTP responses and three transport failures. Robots responses: 39 HTTP 200, ten 301, two 308. Page responses: 28 HTTP 200, five 301, one 308, one 302, one 404. No redirect was followed. Acquisition used the existing bounded GET, exact host allowlist, pacing, TLS verification and robots checks. No forms, purchases, paid APIs, or external research-file uploads were used.
+
+### Separate companion and positive controls
+
+The shared-site companion is outside the 60-location denominator: two successful page captures across four GETs, identity unresolved, Unknown maturity, no corroboration or parcel linkage. The three positive controls also remain separate:
+
+| Control | Local frozen result |
+| --- | --- |
+| Gaetano's | Pages retrieved; exact identity check unresolved; Unknown. Prior manually reviewed L2 evidence remains historical. |
+| Patina'd | Verified homepage L1; Chamber corroborated and parcel linked; transaction-pathway review remains. Prior separately reviewed catalog L2 remains historical. |
+| The Book Oasis | Verified homepage L1; Chamber corroborated and parcel linked; transaction-pathway review remains. |
+
+All three controls yielded pages; two passed automated verification and linked to parcels. Controls accounted for four successful captures, one deferred homepage redirect, ten GETs, 161,747 counted body bytes and 2.31 seconds. None met the current script's scoped-assessment completion rule. The baseline did not repeat the prior manual shop/menu reviews or promote their results into new automated classifications.
+
+### Cost and evidence receipts
+
+- Full process: **70.31 seconds wall, 3.33 seconds CPU, 167.9 MiB peak RSS**, 90 GET attempts and 1,481,195 counted body bytes. Logging overhead is included. Timing excludes preflight and report preparation.
+- Cohort only: **66.83 seconds**, 76 GET attempts and 1,242,332 counted body bytes. Companion: 0.88 seconds, four GETs and 77,116 bytes. Client counters do not represent all wire traffic: headers, failed/redirect response bodies and network overhead are excluded or incomplete.
+- Metered external API spend: **$0**. Human review labor and local electricity/network costs were not metered. The 58/60 follow-up rate is a required-intervention rate, not completed manual labor. Execution required one approved sandbox escalation for preflight and one for the cohort; no case-level manual interventions occurred. Runtime is not a full-assessment cost or a defensible town-wide throughput estimate.
+- All **60 cohort rows, one companion and three controls** retain nonempty source references and the frozen input hashes. All **28 successful page attempts** have URL, timestamp, snapshot reference and a verified SHA-256; deduplication yields **26 private HTML snapshots**. The three cohort corroborations reuse the exact checksum-verified Chamber snapshot and prior review ledger. Evidence linkage checks pass for these recorded claims, but independent correctness was not audited. Failed requests have audit/log outcomes, not successful source snapshots; robots bodies are not retained. Thus this does not establish complete raw-response provenance for every network exchange.
+- Private output: `data/phase21/readiness-local-20261128T144132Z/`, including `audit.json`, `execution-receipt.json`, and the derived aggregate summary. The sibling `.transport.log` separates HTTP outcomes from transport failures. These artifacts and preflight captures remain ignored by Git.
+- Audit SHA-256: `543b75a2c8bce618856ef6d10e51e5cc2a9d5a3c38b7dd844db0877c20c23575`. Transport log SHA-256: `4637f68d27071af29d104ec0ab572b09290f64dbb7590b22d832322047ee1571`.
+- Approved host configuration SHA-256: `72b227b38ca60c142ff87ed705e77062fc39b484ede17f4567f18fd15f0ff1e6`. Cohort and graph remain byte-identical before and after execution: `08a99fafd2f56e31e11c6f1f10ee5cb88af67d0d192a9668ad96ebaaa395d7d3` and `6c3f1dc18d360a6a01b64f9d9b59ca5d2510d2d5ba438c5ede8105f3876a4456`.
+
+The original acceptance criteria are unchanged: evaluate all 70 original candidates, independently corroborate at least 50 locations, verify 30 websites, complete 30 digital assessments, achieve 90% parcel linkage among corroborated businesses, and preserve 100% assertion provenance. The prior 70-candidate discovery evaluation is historical; this baseline evaluates its frozen 60-site cohort and separate companion/controls, not a new 70-candidate cohort. Current results are three cohort corroborations, 11 deterministic website passes and five scoped homepage assessments, with no new comprehensive manual assessments. The 3/3 parcel result has too small and selected a denominator to establish reliability. Provenance linkage is verified for recorded merchant claims; access-response retention has the stated limitation. Gate A's independent address/parcel precision and coverage requirements remain open and unmeasured by this baseline. No Gate B, production-readiness, or town-completeness claim is made.
+
+The earlier cloud results below are retained as historical evidence, not the current local outcome. Work stops here for architectural review; no parser, architecture, physical-graph, or cohort change was made.
+
+---
+
 ## Post-publication connectivity preflight
 
 **Stopped before the cohort rerun.** Publication was reported, but the active runtime reported current, enforced revision 12. Its effective policy contained only the previous 16 custom hosts. The available configuration showed 73 custom hosts, of which 57 were absent from the effective runtime policy.
